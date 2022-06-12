@@ -1,0 +1,69 @@
+# https://phptoday.ru/post/gotovim-lokalnuyu-sredu-docker-dlya-razrabotki-na-php
+# Версия docker-compose
+version: '3'
+# Список наших сервисов (контейнеров)
+services:
+  nginx:
+    container_name: nginx
+    # используем последний стабильный образ nginx
+    image: nginx:latest
+    restart: on-failure
+    # маршрутизируем порты
+    ports:
+      - "80:80"
+      - "443:443"
+    # монтируем директории, слева директории на основной машине, справа - куда они монтируются в контейнере
+    volumes:
+      - ./nginx/hosts:/etc/nginx/conf.d
+      - ./../backend:/src
+      - ./logs:/var/log/nginx
+    environment:
+      - TZ=Europe/Moscow
+    # nginx должен общаться с php контейнером
+    links:
+      - php
+  php:
+    container_name: php
+    # у нас свой образ для PHP, указываем путь к нему и говорим что его надо собрать
+    build: ./php
+    restart: on-failure
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+    # монтируем директорию с проектами
+    volumes:
+      - ./../backend:/src
+    environment:
+      PHP_IDE_CONFIG: "serverName=DockerMain"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  db:
+    image: postgres
+    restart: on-failure
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_database:/var/lib/postgresql/data:Z
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+      TZ: 'Europe/Moscow'
+      PGTZ: 'Europe/Moscow'
+  redis:
+    image: "redis"
+    container_name: redis-server
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/var/lib/redis
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+     - REDIS_REPLICATION_MODE=master
+volumes:
+  postgres_database:
+    external: false
