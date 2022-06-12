@@ -24,5 +24,8 @@ init-n:
 	docker exec $(backend) bash -c 'chmod -R 777 /src/storage/logs'
 	docker-compose -f $(path_local) exec php /src/artisan config:clear
 
+seed:
+	docker-compose -f $(path_local) exec php /src/artisan db:seed
+
 path_local := docker-compose.yml
 backend := php
